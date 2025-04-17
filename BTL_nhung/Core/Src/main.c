@@ -22,12 +22,6 @@
 #include "OLED_SSD1306.c"
 
 #define STATE_STOPPED  0
-#define RGB_state_1 1
-#define RGB_state_2 2
-#define RGB_state_3 3
-#define RGB_state_4 4
-#define RGB_state_5 5
-
 
 
 /* Private function prototypes -----------------------------------------------*/
@@ -41,11 +35,11 @@ void init_buzzer(void);
 
 
 void init_ADC_MQ2(void);
-void init_led_RGB(void);
+void init_timer1_led_RGB(void);
 void init_relay(void);
 
 
-void RGB_update(uint8_t RGB_state);
+void RGB_update(int R, int G, int B, int FREQ);
 
 //void init_UART_ESP32(void);
 //void send_ESP32(char *str);
@@ -71,7 +65,8 @@ int main(void)
 
   {
     /* USER CODE END WHILE */
-
+	 ADC1->CR2 |= ADC_CR2_SWSTART;         // Bắt đầu chuyển đổi
+	  HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -94,26 +89,144 @@ void init_buzzer(void){
 }
 
 
-void init_ADC_MQ2(void){
+void init_ADC_MQ2(void)
+{
+	// Cấu hình GPIOA chế độ analog để đọc ADC
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;  	// Bật clock GPIOA
+	GPIOA->MODER &= ~(3 << (0 * 2));  		// Xóa cấu hình cũ của PA0
+	GPIOA->MODER  |= (3 << (0 * 2));  		// Chọn chế độ analog cho PA0 (MODER00 = 11)
 
+	// Cấu hình bộ ADC
+	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;     // Bật clock cho ADC1
+
+	ADC1->CR1 &= ~ADC_CR1_RES_Msk;        	// Xóa cấu hình độ phân giải cũ
+	ADC1->CR1 |= 2 << ADC_CR1_RES_Pos;    	// Chọn độ phân giải 8 bit (10 = 8-bit resolution)
+	ADC1->CR1 |= ADC_CR1_EOCIE;				// Bật ngắt khi ADC chuyển đổi hoàn tất (EOC)
+
+	ADC1->SMPR2 |= (3 << (0 * 3));          // Cấu hình thời gian lấy mẫu cho kênh 0: 56 cycles
+
+	ADC1->SQR3 &= ~(0xF << 0);              // Chọn kênh ADC = kênh 0 (PA0)
+
+	ADC1->CR2 |= ADC_CR2_ADON;            	// Bật ADC1 (Enable ADC)
+
+	NVIC_EnableIRQ(ADC_IRQn); 				// Bật ngắt ADC trong NVIC
+	NVIC_SetPriority(ADC_IRQn, 1); 			// Ưu tiên mức 1 cho ngắt ADC
 }
-void init_led_RGB(void){
 
+int ppm_caculator(uint16_t data)
+{
+    // Tính điện áp từ giá trị ADC đọc được (độ phân giải 8-bit → 256 mức)
+    double voltage = 3.3 * data / 256.0;
+    // Tính điện trở Rs theo điện áp
+    double Rs = 1 * ((3.3 - voltage) / voltage);
+    // Tỷ số Rs/Ro (Ro = 10 ohm, giả sử)
+    double divRsRo = Rs / 10;
+    // Tính log10(ppm) từ đường cong đặc trưng
+    float log_ppm = -0.45 * log10f(divRsRo) + 1.25;
+    // Tính ppm bằng cách mũ hóa cơ số 10
+    return (int) powf(10.0, log_ppm);
 }
-void init_relay(void){
 
-}
-
-void RGB_update(uint8_t RGB_state){
-	switch(RGB_state)
+void ADC_IRQHandler(void)
+{
+	uint16_t adc_value;
+	if (ADC1->SR & (1 << 1)) 	// Kiểm tra cờ EOC (End Of Conversion)
 	{
-		case RGB_state_1:
+	    adc_value = ADC1->DR;   			// Đọc giá trị ADC
+	    ppm_value = ppm_caculator(adc_value); 	// Tính toán ppm từ giá trị ADC
 
-		break;
+	    // Cập nhật màu RGB theo mức ppm
+	    if(ppm_value < 50)
+	    	RGB_update(0, 0, 1, 2);  		// Màu xanh dương, nhấp nháy chậm
+	    if(ppm_value >= 50 && ppm_value < 200)
+	    	RGB_update(0, 1, 0, 1);  		// Màu xanh lá, nhấp nháy chậm
+	    if(ppm_value >= 200)
+	    	RGB_update(1, 0, 0, 10); 		// Màu đỏ, nhấp nháy nhanh
 
+	    ADC1->SR &= ~(1 << 1);  			// Xóa cờ EOC
 	}
 }
 
+void init_timer1_led_RGB(void)
+{
+    // 1. Bật clock GPIOA và TIM1
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
+
+    // 2. Cấu hình các chân PA8, PA9, PA10 làm Alternate Function (AF1 tương ứng với TIM1)
+    GPIOA->MODER &= ~( (3 << (8 * 2)) | (3 << (9 * 2)) | (3 << (10 * 2)) );  // Xóa cấu hình cũ
+    GPIOA->MODER |=  (2 << (8 * 2)) | (2 << (9 * 2)) | (2 << (10 * 2));      // Đặt chế độ AF
+
+    GPIOA->AFR[1] &= ~((0xF << ((8 - 8) * 4)) | (0xF << ((9 - 8) * 4)) | (0xF << ((10 - 8) * 4)));
+    GPIOA->AFR[1] |=  (1 << ((8 - 8) * 4)) | (1 << ((9 - 8) * 4)) | (1 << ((10 - 8) * 4));  // AF1
+
+    // 3. Cấu hình Timer1
+    TIM1->PSC = 79999;        // Prescaler: giảm từ 80 MHz xuống 1 kHz
+    TIM1->ARR = 999;          // Auto-reload: 1s chu kỳ (1 tick = 1ms)
+
+    // 4. Đặt giá trị so sánh ban đầu cho 3 kênh PWM (CCR)
+    TIM1->CCR1 = 0;
+    TIM1->CCR2 = 0;
+    TIM1->CCR3 = 0;
+
+    // 5. Cấu hình chế độ PWM cho các kênh (OC1, OC2, OC3)
+    TIM1->CCMR1 &= ~(TIM_CCMR1_OC1M | TIM_CCMR1_OC2M);  // Xóa mode cũ
+    TIM1->CCMR2 &= ~(TIM_CCMR2_OC3M);                   // Xóa mode cũ
+
+    TIM1->CCMR1 |= (0b110 << TIM_CCMR1_OC1M_Pos);  // PWM mode 1 cho OC1
+    TIM1->CCMR1 |= (0b110 << TIM_CCMR1_OC2M_Pos);  // PWM mode 1 cho OC2
+    TIM1->CCMR2 |= (0b110 << TIM_CCMR2_OC3M_Pos);  // PWM mode 1 cho OC3
+
+    TIM1->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E; // Cho phép xuất tín hiệu trên CH1, CH2, CH3
+
+    // 6. Cho phép output (Main Output Enable)
+    TIM1->BDTR |= TIM_BDTR_MOE;
+
+    // 7. Bắt đầu Timer
+    TIM1->CR1 |= TIM_CR1_CEN;
+}
+
+void RGB_update(int R, int G, int B, int FREQ)
+{
+	TIM1->CR1 &= ~TIM_CR1_CEN;  // Dừng Timer để cập nhật
+
+	if(FREQ == 0)  // Nếu không nhấp nháy
+	{
+        TIM1->ARR = 999;  // Chu kỳ 1 giây
+        // Cập nhật duty cycle 100% hoặc 0% tùy màu
+        TIM1->CCR1 = (R == 0) ? 0 : 999;
+        TIM1->CCR2 = (G == 0) ? 0 : 999;
+        TIM1->CCR3 = (B == 0) ? 0 : 999;
+	}
+	else  // Nếu có nhấp nháy
+	{
+		int arr_val = 1000 / FREQ - 1;       	// Tính chu kỳ mới theo tần số mong muốn
+		int duty = arr_val / 2;				// Duty cycle 50%
+
+		TIM1->ARR = arr_val;				// Cập nhật chu kỳ mới
+		TIM1->CCR1 = (R == 0) ? 0 : duty;
+		TIM1->CCR2 = (G == 0) ? 0 : duty;
+		TIM1->CCR3 = (B == 0) ? 0 : duty;
+	}
+
+	TIM1->EGR |= TIM_EGR_UG;  				// Tạo sự kiện cập nhật
+	TIM1->CR1 |= TIM_CR1_CEN; 				// Khởi động lại Timer
+}
+
+
+void init_relay(void) {
+    // 1. Bật clock cho port B
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+    // 2. Cấu hình PB12 là output (MODER = 01)
+    GPIOB->MODER &= ~(3 << (12 * 2));   // Clear 2 bit MODER12
+    GPIOB->MODER |=  (1 << (12 * 2));   // Set bit 12 thành 01 (output)
+    // 3. Output type: push-pull (OTYPER = 0)
+    GPIOB->OTYPER &= ~(1 << 12);        // Push-pull
+    // 5. No pull-up, no pull-down (PUPDR = 00)
+    GPIOB->PUPDR &= ~(3 << (12 * 2));
+    // 6. Đặt mức logic ban đầu (LOW): relay off
+    GPIOB->ODR &= ~(1 << 12);
+}
 
 
 /**

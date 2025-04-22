@@ -135,13 +135,50 @@ void ADC_IRQHandler(void)
 	    adc_value = ADC1->DR;   			// Đọc giá trị ADC
 	    ppm_value = ppm_caculator(adc_value); 	// Tính toán ppm từ giá trị ADC
 
-	    // Cập nhật màu RGB theo mức ppm
-	    if(ppm_value < 50)
-	    	RGB_update(0, 0, 1, 2);  		// Màu xanh dương, nhấp nháy chậm
-	    if(ppm_value >= 50 && ppm_value < 200)
-	    	RGB_update(0, 1, 0, 1);  		// Màu xanh lá, nhấp nháy chậm
-	    if(ppm_value >= 200)
-	    	RGB_update(1, 0, 0, 10); 		// Màu đỏ, nhấp nháy nhanh
+	    // Cập nhật hành vi theo ppm
+	    if(ppm_value < 20)
+	    {
+
+
+
+
+	    	// bật led xanh dương khi không có khí gar .
+	    	RGB_update(0, 0, 1, 0);
+	    }
+
+	    if(ppm_value >= 20 && ppm_value <150)
+	    {
+
+
+
+	    	// bật ledvàng khi khí gar thấp.
+	    	RGB_update(1, 1, 0, 0);
+
+	    }
+
+	    if(ppm_value >= 150 && ppm_value < 400)
+	    {
+
+
+
+	    	// bật led đỏ nháy 1Hz.
+	    	RGB_update(1, 0, 0, 1);
+
+	    	// kích hoạt relay
+	    	GPIOB->ODR |= 1 << 12;
+	    }
+
+	    if(ppm_value >= 400)
+	    {
+
+
+
+	    	// bật led đỏ nháy 5Hz.
+	    	RGB_update(1, 0, 0, 5);
+
+	    	// kích hoạt relay
+	    	GPIOB->ODR |= 1 << 12;
+	    }
 
 	    ADC1->SR &= ~(1 << 1);  			// Xóa cờ EOC
 	}

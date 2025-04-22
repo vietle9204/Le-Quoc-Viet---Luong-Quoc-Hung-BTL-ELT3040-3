@@ -20,13 +20,14 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "OLED_SSD1306.c"
+#include "string.h"
+#include "math.h"
 
 #define STATE_STOPPED  0
 
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
 
 
 void init_Switch(void);
@@ -37,7 +38,6 @@ void init_buzzer(void);
 void init_ADC_MQ2(void);
 void init_timer1_led_RGB(void);
 void init_relay(void);
-
 
 void RGB_update(int R, int G, int B, int FREQ);
 
@@ -50,14 +50,14 @@ int main(void)
 {
   SystemClock_Config();
 
-  init_Switch(void);
-  init_led(void);
-  init_buzzer(void);
-  init_I2C_oled(void);
+  init_Switch();
+  init_led();
+  init_buzzer();
+//  init_I2C_oled();
 
-  init_ADC_MQ2(void);
-  init_led_RGB(void);
-  init_relay(void);
+  init_ADC_MQ2();
+  init_timer1_led_RGB();
+  init_relay();
 
   ssd1306_init();
 
@@ -77,15 +77,15 @@ int main(void)
  * SW2: khai báo PA2 (reset) input
  */
 void init_Switch(void){
-
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 }
 
 void init_led(void){
-
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
 }
 
 void init_buzzer(void){
-
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 }
 
 
@@ -130,6 +130,7 @@ int ppm_caculator(uint16_t data)
 void ADC_IRQHandler(void)
 {
 	uint16_t adc_value;
+	uint16_t ppm_value;
 	if (ADC1->SR & (1 << 1)) 	// Kiểm tra cờ EOC (End Of Conversion)
 	{
 	    adc_value = ADC1->DR;   			// Đọc giá trị ADC

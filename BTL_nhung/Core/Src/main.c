@@ -164,7 +164,7 @@ void init_ADC_MQ2(void) {
 	ADC1->CR1 |= 2 << ADC_CR1_RES_Pos; 		// Chọn độ phân giải 8 bit (10 = 8-bit resolution)
 	ADC1->CR1 |= ADC_CR1_EOCIE;				// Bật ngắt khi ADC chuyển đổi hoàn tất (EOC)
 
-	ADC1->SMPR2 |= (3 << (0 * 3)); 			// Cấu hình thời gian lấy mẫu cho kênh 0: 56 cycles
+	ADC1->SMPR2 |= (7 << (0 * 3)); 			// Cấu hình thời gian lấy mẫu cho kênh 0: 56 cycles
 
 	ADC1->SQR3 &= ~(0xF << 0);              // Chọn kênh ADC = kênh 0 (PA0)
 
@@ -372,6 +372,10 @@ int main(void) {
 	OnOffSwitch_Init();
 	ResetSwitch_Init();
 	RGB_update(0, 0, 1, 0);
+
+	NVIC_SetPriority(EXTI2_IRQn, 1); 			// Ưu tiên mức 1
+	NVIC_SetPriority(EXTI1_IRQn, 2); 			// Ưu tiên mức 2
+	NVIC_SetPriority(ADC_IRQn, 3); 			// Ưu tiên mức 3 cho ngắt ADC
 
 	while (1) {
 		//khiểm tra hệ thống on.

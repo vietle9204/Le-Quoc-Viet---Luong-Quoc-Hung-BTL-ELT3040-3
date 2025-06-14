@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">
-<refactoring comment="Rename resource &apos;adc_MQ2/Core/Src/SSD_1306_I2C&apos; to &apos;SSD_1306_I2C.c&apos;" description="Rename resource &apos;SSD_1306_I2C&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="Core/Src/SSD_1306_I2C" name="SSD_1306_I2C.c" stamp="1749304031070" updateReferences="true"/>
-</session>

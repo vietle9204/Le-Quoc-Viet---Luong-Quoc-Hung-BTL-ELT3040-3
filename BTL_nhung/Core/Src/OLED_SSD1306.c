@@ -112,7 +112,10 @@ static const uint8_t font5x8[][5] = {
 
 void init_I2C_oled(void);
 
-void ssd1306_send_cmd(uint8_t cmd);
+void ssd1306_send_cmd(uint8_t cmd)
+{
+
+}
 
 void ssd1306_send_data(uint8_t *data, uint16_t size);
 

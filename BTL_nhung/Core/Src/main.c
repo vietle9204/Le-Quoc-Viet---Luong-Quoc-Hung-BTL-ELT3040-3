@@ -359,16 +359,17 @@ void init_relay(void) {
 }
 
 void init_buzzer(void) {
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;	//  clock cho port A
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;	//  clock cho port B
 
-	GPIOA->MODER &= ~(3 << (12 * 2));   // Clear
-	GPIOA->MODER |= (1 << (12 * 2));   // Set PA12 output
+	GPIOA->MODER &= ~(3 << (0 * 2));   // Clear
+	GPIOA->MODER |= (1 << (0 * 2));   // Set PB0 output
 
-	GPIOA->OTYPER &= ~(1 << 12);        // Push-pull
-	GPIOA->PUPDR &= ~(3 << (12 * 2));	//No pull-up, no pull-down (PUPDR = 00)
+	GPIOA->OTYPER &= ~(1 << 0);        // Push-pull
+	GPIOA->PUPDR &= ~(3 << (0 * 2));	//No pull-up, no pull-down (PUPDR = 00)
 
-	GPIOA->ODR |= 1 << 12;			//set giá trị ban đầu = 1: buzzer off.
+	GPIOA->ODR |= 1 << 0;			//set giá trị ban đầu = 1: buzzer off.
 }
+
 
 
 

@@ -1,5 +1,6 @@
 "./Core/Src/LCD.o"
-"./Core/Src/OLED_SSD1306.o"
+"./Core/Src/SSD_1306_I2C.o"
+"./Core/Src/font.o"
 "./Core/Src/main.o"
 "./Core/Src/stm32f4xx_hal_msp.o"
 "./Core/Src/stm32f4xx_it.o"

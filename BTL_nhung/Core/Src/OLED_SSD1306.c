@@ -1,38 +1,8 @@
 #include "stm32f4xx.h"
-/**
- * data các ký tự tiếng việt trong mã ascii.
- * hiện thị kích thước 5x8 trên oled.
- */
-static const uint8_t font5x8[][5] = {
-// Ký tự: space đến ~
-		{ 0x00, 0x00, 0x00, 0x00, 0x00 }, // (space)
-		{ 0x00, 0x00, 0x5F, 0x00, 0x00 }, // !
-		{ 0x00, 0x07, 0x00, 0x07, 0x00 }, // "
-		{ 0x14, 0x7F, 0x14, 0x7F, 0x14 }, // #
-		{ 0x24, 0x2A, 0x7F, 0x2A, 0x12 }, // $
-		{ 0x23, 0x13, 0x08, 0x64, 0x62 }, // %
-		{ 0x36, 0x49, 0x55, 0x22, 0x50 }, // &
-		{ 0x00, 0x05, 0x03, 0x00, 0x00 }, // '
-		{ 0x00, 0x1C, 0x22, 0x41, 0x00 }, // (
-		{ 0x00, 0x41, 0x22, 0x1C, 0x00 }, // )
-		{ 0x14, 0x08, 0x3E, 0x08, 0x14 }, // *
-		{ 0x08, 0x08, 0x3E, 0x08, 0x08 }, // +
-		{ 0x00, 0x50, 0x30, 0x00, 0x00 }, // ,
-		{ 0x08, 0x08, 0x08, 0x08, 0x08 }, // -
-		{ 0x00, 0x60, 0x60, 0x00, 0x00 }, // .
-		{ 0x20, 0x10, 0x08, 0x04, 0x02 }, // /
 
-		{ 0x3E, 0x51, 0x49, 0x45, 0x3E }, // 0
-		{ 0x00, 0x42, 0x7F, 0x40, 0x00 }, // 1
-		{ 0x42, 0x61, 0x51, 0x49, 0x46 }, // 2
-		{ 0x21, 0x41, 0x45, 0x4B, 0x31 }, // 3
-		{ 0x18, 0x14, 0x12, 0x7F, 0x10 }, // 4
-		{ 0x27, 0x45, 0x45, 0x45, 0x39 }, // 5
-		{ 0x3C, 0x4A, 0x49, 0x49, 0x30 }, // 6
-		{ 0x01, 0x71, 0x09, 0x05, 0x03 }, // 7
-		{ 0x36, 0x49, 0x49, 0x49, 0x36 }, // 8
-		{ 0x06, 0x49, 0x49, 0x29, 0x1E }, // 9
+#define LCD_ADDR (0x27 << 1)
 
+<<<<<<< HEAD
 		{ 0x00, 0x36, 0x36, 0x00, 0x00 }, // :
 		{ 0x00, 0x56, 0x36, 0x00, 0x00 }, // ;
 		{ 0x08, 0x14, 0x22, 0x41, 0x00 }, // <
@@ -163,10 +133,124 @@ void ssd1306_init() {
 	ssd1306_send_cmd(0x14);
 
 	ssd1306_send_cmd(0xAF); // Bật màn hình
+=======
+void delay_ms(uint32_t ms);
+void I2C1_Init(void);
+void I2C1_Write(uint8_t addr, uint8_t *data, uint8_t len);
+void lcd_send_cmd(char cmd);
+void lcd_send_data(char data);
+void lcd_init(void);
+void lcd_puts(char *str);
+void lcd_gotoxy(uint8_t col, uint8_t row);
+int main(void)
+{
+    I2C1_Init();
+    lcd_init();
+    lcd_gotoxy(0, 0);
+    lcd_puts("He thong:");
+    lcd_gotoxy(0, 1);       // Di chuyển đến dòng 2, cột 0
+    lcd_puts("Khi gas:");
+    while (1) {}
+>>>>>>> 0154b88dc1880da5581ef7c9717fefcf7b3f84b5
 }
 
-void ssd1306_clear(void);
+void delay_ms(uint32_t ms)
+{
+    for (uint32_t i = 0; i < ms * 4000; i++) __NOP();
+}
 
-void ssd1306_set_cursor(uint8_t x, uint8_t page);
+void I2C1_Init(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
 
-void ssd1306_draw_char(uint8_t x, uint8_t page, char c);
+    GPIOB->MODER &= ~(GPIO_MODER_MODE6_Msk | GPIO_MODER_MODE7_Msk);
+    GPIOB->MODER |= (2 << GPIO_MODER_MODE6_Pos) | (2 << GPIO_MODER_MODE7_Pos); // AF
+
+    GPIOB->AFR[0] |= (4 << GPIO_AFRL_AFSEL6_Pos) | (4 << GPIO_AFRL_AFSEL7_Pos);
+    GPIOB->OTYPER |= GPIO_OTYPER_OT6 | GPIO_OTYPER_OT7;
+    GPIOB->PUPDR |= (1 << GPIO_PUPDR_PUPD6_Pos) | (1 << GPIO_PUPDR_PUPD7_Pos); // pull-up
+
+    I2C1->CR1 &= ~I2C_CR1_PE;
+    I2C1->CR2 = 16;      // APB1 = 16 MHz
+    I2C1->CCR = 80;      // 100 kHz
+    I2C1->TRISE = 17;
+    I2C1->CR1 |= I2C_CR1_PE;
+}
+
+void I2C1_Write(uint8_t addr, uint8_t *data, uint8_t len)
+{
+    I2C1->CR1 |= I2C_CR1_START;
+    while (!(I2C1->SR1 & I2C_SR1_SB));
+    I2C1->DR = addr & ~0x01;
+    while (!(I2C1->SR1 & I2C_SR1_ADDR));
+    (void)I2C1->SR2;
+
+    for (int i = 0; i < len; i++) {
+        while (!(I2C1->SR1 & I2C_SR1_TXE));
+        I2C1->DR = data[i];
+    }
+
+    while (!(I2C1->SR1 & I2C_SR1_BTF));
+    I2C1->CR1 |= I2C_CR1_STOP;
+}
+
+void lcd_send_cmd(char cmd)
+{
+    char u = cmd & 0xF0;
+    char l = (cmd << 4) & 0xF0;
+    uint8_t data[4] = {
+        u | 0x0C, u | 0x08,
+        l | 0x0C, l | 0x08
+    };
+    I2C1_Write(LCD_ADDR, data, 4);
+}
+
+void lcd_send_data(char data_char)
+{
+    char u = data_char & 0xF0;
+    char l = (data_char << 4) & 0xF0;
+    uint8_t data[4] = {
+        u | 0x0D, u | 0x09,
+        l | 0x0D, l | 0x09
+    };
+    I2C1_Write(LCD_ADDR, data, 4);
+}
+
+void lcd_init(void)
+{
+    delay_ms(50);
+    lcd_send_cmd(0x30); delay_ms(5);
+    lcd_send_cmd(0x30); delay_ms(1);
+    lcd_send_cmd(0x30); delay_ms(10);
+    lcd_send_cmd(0x20); delay_ms(10);
+
+    lcd_send_cmd(0x28); delay_ms(1);  // Function set
+    lcd_send_cmd(0x08); delay_ms(1);  // Display off
+    lcd_send_cmd(0x01); delay_ms(2);  // Clear
+    lcd_send_cmd(0x06); delay_ms(1);  // Entry mode
+    lcd_send_cmd(0x0C); delay_ms(1);  // Display on
+}
+
+void lcd_puts(char *str)
+{
+    while (*str) {
+        lcd_send_data(*str++);
+    }
+}
+
+void lcd_gotoxy(uint8_t col, uint8_t row)
+{
+    uint8_t address;
+
+    switch (row)
+    {
+        case 0: address = 0x80 + col; break;  // Dòng 1
+        case 1: address = 0xC0 + col; break;  // Dòng 2
+        case 2: address = 0x94 + col; break;  // Dòng 3
+        case 3: address = 0xD4 + col; break;  // Dòng 4
+        default: return;  // Sai row thì không gửi lệnh
+    }
+
+    lcd_send_cmd(address);  // Gửi lệnh set DDRAM address
+}

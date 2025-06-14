@@ -1,3 +1,0 @@
-../Core/Src/usart_esp32.c:16:6:init_usart6	1
-../Core/Src/usart_esp32.c:31:6:send_sys_state	3
-../Core/Src/usart_esp32.c:42:6:USART6_IRQHandler	3

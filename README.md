@@ -1,5 +1,6 @@
 schematic
-![image](https://github.com/user-attachments/assets/ea8cda8f-69b7-499e-baa4-6ebbb9f6ab5e)
+![image](https://github.com/user-attachments/assets/b4c76a4f-2de9-4734-8cf0-5338158f29c4)
+
 
 
 

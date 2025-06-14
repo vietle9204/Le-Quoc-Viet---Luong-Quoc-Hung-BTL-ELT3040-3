@@ -3,7 +3,7 @@
 #include "math.h"
 #include "string.h"
 //#include "usart_esp32.h"
-//#include "ssd1306.h"
+#include "ssd1306.h"
 
 #define low_gar_default_value 15
 #define high_gar_default_value  100
@@ -36,6 +36,9 @@ void RGB_update(int R, int G, int B, int FREQ); // cập nhật màu sắc và t
 
 
 void init_ADC_MQ2(void);						// khởi tạo ADC đọc cảm biến  mq2.
+
+
+
 
 void init_relay(void);							// khởi tạo relay.
 void init_buzzer(void);							// khởi tạo buzzer.
@@ -101,8 +104,8 @@ void system_on_off(int state) {
 
 		TIM1->CR1 |= TIM_CR1_CEN;		  // bật timer cho rgb.
 
-//		ssd1306_goto(0, 0);
-//		ssd1306_put_string("sys_status: 1 - on  ");
+		ssd1306_goto(0, 0);
+		ssd1306_put_string("sys_status: 1 - on  ");
 
 	} else {
 		ADC1->CR2 &= ~ADC_CR2_ADON;  // tắt adc
@@ -112,8 +115,8 @@ void system_on_off(int state) {
 		GPIOB->ODR &= ~(1 << 12);	 // tắt relay
 		GPIOA->ODR |= (1 << 12);	 // tắt buzzer
 
-//		ssd1306_goto(0, 0);
-//		ssd1306_put_string("sys_status: 0 - off ");
+		ssd1306_goto(0, 0);
+		ssd1306_put_string("sys_status: 0 - off ");
 
 	}
 
@@ -136,13 +139,32 @@ void EXTI1_IRQHandler(void) {
 void EXTI2_IRQHandler(void) {
 	if (EXTI->PR & (1U << 2)) {
 
-		system_on_off(system_off);
+		ssd1306_goto(0, 0);
+		ssd1306_put_string("sys_status: reset ");
+
 		RGB_update(0, 0, 1, 0);		 //set rgb
-//		ssd1306_goto(0, 0);
-//		ssd1306_put_string("sys_status: reset ");
+
+		NVIC_DisableIRQ(EXTI1_IRQn);  // Vô hiệu hóa switch 1
+		NVIC_DisableIRQ(EXTI2_IRQn);  // Vô hiệu hóa switch 2
+
+		//	    RCC->APB2RSTR |= RCC_APB2RSTR_ADC1RST;
+		//	    RCC->APB2RSTR &= ~RCC_APB2RSTR_ADC1RST;
+	    init_ADC_MQ2();
+	    init_timer1_led_RGB();
+
+
+		system_on_off(system_off);
+		warning_state = 0;
+		ppm_value = 0;
+		adc_value = 0;
+
+
 
 		while(!(GPIOA->IDR >> 2 & 0x1));    // chờ tới khi nút nhấn được nhả
 		system_on_off(system_on);
+
+		NVIC_EnableIRQ(EXTI1_IRQn);					// Enable EXTI1 interrupt in NVIC.
+		NVIC_EnableIRQ(EXTI2_IRQn);					// Enable EXTI2 interrupt in NVIC.			// Enable EXTI1 interrupt in NVIC.
 
 		EXTI->PR |= (1U << 2); // Clear interrupt pending
 	}
@@ -164,14 +186,14 @@ void init_ADC_MQ2(void) {
 	ADC1->CR1 |= 2 << ADC_CR1_RES_Pos; 		// Chọn độ phân giải 8 bit (10 = 8-bit resolution)
 	ADC1->CR1 |= ADC_CR1_EOCIE;				// Bật ngắt khi ADC chuyển đổi hoàn tất (EOC)
 
-	ADC1->SMPR2 |= (7 << (0 * 3)); 			// Cấu hình thời gian lấy mẫu cho kênh 0: 56 cycles
+	ADC1->SMPR2 |= (7 << (0 * 3)); 			// Cấu hình thời gian lấy mẫu cho kênh 0: 112 cycles
 
 	ADC1->SQR3 &= ~(0xF << 0);              // Chọn kênh ADC = kênh 0 (PA0)
 
 	ADC1->CR2 |= ADC_CR2_ADON;            	// Bật ADC1 (Enable ADC)
 
 	NVIC_EnableIRQ(ADC_IRQn); 				// Bật ngắt ADC trong NVIC
-//	NVIC_SetPriority(ADC_IRQn, 3); 			// Ưu tiên mức 1 cho ngắt ADC
+
 }
 
 /**
@@ -182,8 +204,8 @@ int ppm_caculator(uint16_t data) {
 //	double voltage = 5 * data / 256.0;
 	// Tính điện trở Rs theo điện áp
 	double Rs = 1000.0 * ((256.0 - data) / data);
-	// Tỷ số Rs/Ro (Ro = 1000 ohm, giả sử)
-	double divRsRo = Rs / 2000.0;
+	// Tỷ số Rs/Ro (Ro = 34123.967 : đo trong không khí sạch)
+	double divRsRo = Rs / 34123.967;
 	// Tính log10(ppm) từ đường cong đặc trưng
 	float log_ppm = -0.47 * log10f(divRsRo) + 1.45;
 	// Tính ppm bằng cách mũ hóa cơ số 10
@@ -346,13 +368,13 @@ int main(void) {
 
 	//	init_usart6();
 
-//	char str[12];  // bộ nhớ đủ lớn để chứa số nguyên và '\0'
-/**
+	char str[12];  // bộ nhớ đủ lớn để chứa số nguyên và '\0'
+
 	ssd1306_init();
 	ssd1306_clear();
 
 	ssd1306_goto(0, 0);
-	ssd1306_put_string("sys_status: 0 - off ");
+	ssd1306_put_string("sys_status: 1 - on  ");
 
 	ssd1306_goto(0, 3);
 	ssd1306_put_string("gar_state: 0 - non");
@@ -362,7 +384,7 @@ int main(void) {
 
 	ssd1306_goto(0, 7);
 	ssd1306_put_string("adc: 0");
-*/
+
 	init_ADC_MQ2();
 	init_timer1_led_RGB();
 
@@ -388,16 +410,16 @@ int main(void) {
 					GPIOB->ODR &= ~(1 << 12);	//relay
 					GPIOA->ODR |= (1 << 12);	//buzzer
 
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("0 - non ");
+					ssd1306_goto(66, 3);
+					ssd1306_put_string("0 - non     ");
 
 				} else if (warning_state == 1) {
 					RGB_update(1, 1, 0, 0);
 					GPIOB->ODR &= ~(1 << 12);
 					GPIOA->ODR |= (1 << 12);
 
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("1 - low ");
+					ssd1306_goto(66, 3);
+					ssd1306_put_string("1 - low     ");
 
 				} else if (warning_state == 2) {
 
@@ -406,8 +428,8 @@ int main(void) {
 					GPIOB->ODR |= 1 << 12;
 					GPIOA->ODR |= 1 << 12;
 
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("2 - high");
+					ssd1306_goto(66, 3);
+					ssd1306_put_string("2 - high    ");
 
 				} else if (warning_state == 3) {
 					RGB_update(1, 0, 0, 5);
@@ -415,24 +437,24 @@ int main(void) {
 					GPIOB->ODR |= 1 << 12;
 					GPIOA->ODR &= ~(1 << 12);
 
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("3 - warnning");
+					ssd1306_goto(66, 3);
+					ssd1306_put_string("3 - warnning");
 
 				}
 
 				gar_flag = 0;
 
 			}
-/**			//cập nhật ppm
-			sprintf(str, "%d", ppm_value);  // chuyển số nguyên sang chuỗi
-			ssd1306_goto(5, 5);
+			//cập nhật ppm
+			sprintf(str, "%d   ", ppm_value);  // chuyển số nguyên sang chuỗi
+			ssd1306_goto(30, 5);
 			ssd1306_put_string(str);
 
-			sprintf(str, "%d", adc_value);
-			ssd1306_goto(5, 7);
+			sprintf(str, "%d   ", adc_value);
+			ssd1306_goto(30, 7);
 			ssd1306_put_string(str);
 
-*/
+
 			ADC1->CR2 |= ADC_CR2_SWSTART;         // Bắt đầu chuyển đổi
 			for (int i = 0; i < 2000000; i++);		//delay 2s
 		}

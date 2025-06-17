@@ -6,10 +6,9 @@
 //#include "usart_esp32.h"
 //#include "ssd1306.h"
 
-#define low_gar_default_value 50
-#define high_gar_default_value  150
-#define warning_gar_default_value 300
-
+#define low_gar_default_value 50					//mức gar thấp > 50
+#define high_gar_default_value  150					// mức gar cao > 150
+#define warning_gar_default_value 300				// mức gar trên ngưỡng nguy hiểm > 300
 
 #define system_on 1
 #define system_off 0
@@ -23,12 +22,9 @@ int gar_flag = 0;
 int ppm_value = 0;
 uint16_t adc_value = 0;
 
-
-
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 void Error_Handler(void);
-
 
 void OnOffSwitch_Init(void);					// khởi tạo button 1 : on - off.
 void ResetSwitch_Init(void);					// khởi tạo button 2 : reset.
@@ -36,15 +32,10 @@ void ResetSwitch_Init(void);					// khởi tạo button 2 : reset.
 void init_timer1_led_RGB(void);                 // khởi tạo timer pwm cho RGB.
 void RGB_update(int R, int G, int B, int FREQ); // cập nhật màu sắc và tần số nhấp nháy.
 
-
-void init_ADC_MQ2(void);						// khởi tạo ADC đọc cảm biến  mq2.
-
-
-
+void init_ADC_MQ2(void);					// khởi tạo ADC đọc cảm biến  mq2.
 
 void init_relay(void);							// khởi tạo relay.
 void init_buzzer(void);							// khởi tạo buzzer.
-
 
 /**
  * hàm cấu hình switch 1 : on - off
@@ -68,7 +59,7 @@ void OnOffSwitch_Init(void) {
 	EXTI->FTSR |= (1U << 1);           			// ngắt sườn xuống.
 	EXTI->RTSR &= ~(1U << 1);					// không ngắt sườn lên.
 
-	NVIC_EnableIRQ(EXTI1_IRQn);					// Enable EXTI1 interrupt in NVIC.
+	NVIC_EnableIRQ(EXTI1_IRQn);				// Enable EXTI1 interrupt in NVIC.
 }
 
 /**
@@ -92,7 +83,7 @@ void ResetSwitch_Init(void) {
 	EXTI->FTSR |= (1U << 2);					// ngắt sườn xuống
 	EXTI->RTSR &= ~(1U << 2);
 
-	NVIC_EnableIRQ(EXTI2_IRQn);					// Enable EXTI2 interrupt in NVIC
+	NVIC_EnableIRQ(EXTI2_IRQn);				// Enable EXTI2 interrupt in NVIC
 }
 
 /**
@@ -106,31 +97,92 @@ void system_on_off(int state) {
 
 		TIM1->CR1 |= TIM_CR1_CEN;		  // bật timer cho rgb.
 
+		RGB_update(0, 0, 1, 0);		 //set rgb
+		sys_state = system_on;
+
 //		ssd1306_goto(0, 0);
 //		ssd1306_put_string("sys_status: 1 - on  ");
-	    lcd_gotoxy(0, 0);
-	    lcd_puts("system: on ");
-	    lcd_gotoxy(0, 1);
-	    lcd_puts("gar: 0  ppm: 0");
+		lcd_gotoxy(0, 0);
+		lcd_puts("system: on ");
+//	    lcd_gotoxy(0, 1);
+//	    lcd_puts("gar: 0  ppm: 0");
+
+
 
 	} else {
+
+		RGB_update(0, 1, 0, 0);
+		sys_state = system_off;
+
 		ADC1->CR2 &= ~ADC_CR2_ADON;  // tắt adc
 
 		TIM1->CR1 &= ~TIM_CR1_CEN;	 // tắt timmer.
 
+
 		GPIOB->ODR &= ~(1 << 12);	 // tắt relay
-		GPIOA->ODR |= (1 << 12);	 // tắt buzzer
+		GPIOB->ODR |= (1 << 0);	 // tắt buzzer
+
+
 
 //		ssd1306_goto(0, 0);
 //		ssd1306_put_string("sys_status: 0 - off ");
 
-	    lcd_gotoxy(0, 0);
-	    lcd_puts("system: off ----");
-	    lcd_gotoxy(0, 1);
-	    lcd_puts("gar: -  ppm: ---");
+		lcd_gotoxy(0, 0);
+		lcd_puts("system: off     ");
+		lcd_gotoxy(0, 1);
+		lcd_puts("gar: -  ppm: ---");
 
 	}
 
+}
+
+/**
+ *hàm reset hệ thống.
+ *xóa trạng thái hiện tại của ADC và timer đồng thời khởi tạo lại.
+ *khởi tạo lại LCD.
+ */
+void system_reset(void) {
+
+	//		ssd1306_goto(0, 0);
+	//		ssd1306_put_string("sys_status: reset ");
+
+	system_on_off(system_off);
+
+	//NVIC_DisableIRQ(EXTI1_IRQn);  // Vô hiệu hóa switch 1
+	NVIC_DisableIRQ(EXTI2_IRQn);  // Vô hiệu hóa switch 2
+	NVIC_DisableIRQ(ADC_IRQn);
+
+	warning_state = 0;
+	ppm_value = 0;
+	adc_value = 0;
+
+//			ADC1->CR1 = 0;
+//			ADC1->CR2 = 0;
+	ADC1->SR = 0;
+	init_ADC_MQ2();
+
+//		    TIM1->CR1 = 0;
+//		    TIM1->CR2 = 0;
+	TIM1->SR = 0;
+	init_timer1_led_RGB();
+
+	(void)I2C1->DR;      //đọc để rest cờ nếu có.
+
+	lcd_init();
+
+	lcd_gotoxy(0, 0);
+	lcd_puts("system: rst     ");
+	lcd_gotoxy(0, 1);
+	lcd_puts("gar: 0  ppm: 0  ");
+
+	while (!(GPIOA->IDR >> 2 & 0x1))
+		;    // chờ tới khi nút nhấn được nhả
+
+//	NVIC_EnableIRQ(EXTI1_IRQn);				// Enable EXTI1 interrupt in NVIC.
+	NVIC_EnableIRQ(EXTI2_IRQn);	// Enable EXTI2 interrupt in NVIC.
+	NVIC_EnableIRQ(ADC_IRQn); 				// Bật ngắt ADC trong NVIC
+
+	system_on_off(system_on);
 }
 
 /**
@@ -149,35 +201,7 @@ void EXTI1_IRQHandler(void) {
  */
 void EXTI2_IRQHandler(void) {
 	if (EXTI->PR & (1U << 2)) {
-
-//		ssd1306_goto(0, 0);
-//		ssd1306_put_string("sys_status: reset ");
-
-
-		RGB_update(0, 0, 1, 0);		 //set rgb
-
-		NVIC_DisableIRQ(EXTI1_IRQn);  // Vô hiệu hóa switch 1
-		NVIC_DisableIRQ(EXTI2_IRQn);  // Vô hiệu hóa switch 2
-
-		//	    RCC->APB2RSTR |= RCC_APB2RSTR_ADC1RST;
-		//	    RCC->APB2RSTR &= ~RCC_APB2RSTR_ADC1RST;
-//	    init_ADC_MQ2();
-//	    init_timer1_led_RGB();
-
-
-		system_on_off(system_off);
-		warning_state = 0;
-		ppm_value = 0;
-		adc_value = 0;
-
-
-
-		while(!(GPIOA->IDR >> 2 & 0x1));    // chờ tới khi nút nhấn được nhả
-		system_on_off(system_on);
-
-		NVIC_EnableIRQ(EXTI1_IRQn);					// Enable EXTI1 interrupt in NVIC.
-		NVIC_EnableIRQ(EXTI2_IRQn);					// Enable EXTI2 interrupt in NVIC.			// Enable EXTI1 interrupt in NVIC.
-
+		system_reset();
 		EXTI->PR |= (1U << 2); // Clear interrupt pending
 	}
 }
@@ -190,15 +214,15 @@ void init_ADC_MQ2(void) {
 
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;  	// Bật clock GPIOA
 	GPIOA->MODER &= ~(3 << (0 * 2));  		// Xóa cấu hình cũ của PA0
-	GPIOA->MODER |= (3 << (0 * 2)); 		// Chọn chế độ analog cho PA0 (MODER00 = 11)
+	GPIOA->MODER |= (3 << (0 * 2)); // Chọn chế độ analog cho PA0 (MODER00 = 11)
 
 	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;     // Bật clock cho ADC1
 
 	ADC1->CR1 &= ~ADC_CR1_RES_Msk;        	// Xóa cấu hình độ phân giải cũ
 //	ADC1->CR1 |= 2 << ADC_CR1_RES_Pos; 		// Chọn độ phân giải 8 bit (10 = 8-bit resolution)
-	ADC1->CR1 |= ADC_CR1_EOCIE;				// Bật ngắt khi ADC chuyển đổi hoàn tất (EOC)
+	ADC1->CR1 |= ADC_CR1_EOCIE;	// Bật ngắt khi ADC chuyển đổi hoàn tất (EOC)
 
-	ADC1->SMPR2 |= (7 << (0 * 3)); 			// Cấu hình thời gian lấy mẫu cho kênh 0: 112 cycles
+	ADC1->SMPR2 |= (7 << (0 * 3)); // Cấu hình thời gian lấy mẫu cho kênh 0:  cycles
 
 	ADC1->SQR3 &= ~(0xF << 0);              // Chọn kênh ADC = kênh 0 (PA0)
 
@@ -236,14 +260,13 @@ void ADC_IRQHandler(void) {
 		ppm_value = ppm_caculator(adc_value); 	// Tính toán ppm từ giá trị ADC
 
 		if (ppm_value < low_gar_default_value) {	//kiểm tra mức khí gar
-			if (warning_state == 0)					// so sánh trạng thái trước đó
+			if (warning_state == 0)				// so sánh trạng thái trước đó
 				return;								//cùng trạng thái trả về
 			else {
-				warning_state = 0;					// khác trạng thái : cập nhật
+				warning_state = 0;				// khác trạng thái : cập nhật
 				gar_flag = 1;						// và set flag
 			}
-		}
-		else if (ppm_value >= low_gar_default_value
+		} else if (ppm_value >= low_gar_default_value
 				&& ppm_value < high_gar_default_value) {
 			if (warning_state == 1)
 				return;
@@ -251,8 +274,7 @@ void ADC_IRQHandler(void) {
 				warning_state = 1;
 				gar_flag = 1;
 			}
-		}
-		else if (ppm_value >= high_gar_default_value
+		} else if (ppm_value >= high_gar_default_value
 				&& ppm_value < warning_gar_default_value) {
 			if (warning_state == 2)
 				return;
@@ -260,8 +282,7 @@ void ADC_IRQHandler(void) {
 				warning_state = 2;
 				gar_flag = 1;
 			}
-		}
-		else if (ppm_value >= warning_gar_default_value) {
+		} else if (ppm_value >= warning_gar_default_value) {
 			if (warning_state == 3)
 				return;
 			else {
@@ -361,17 +382,14 @@ void init_relay(void) {
 void init_buzzer(void) {
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;	//  clock cho port B
 
-	GPIOA->MODER &= ~(3 << (0 * 2));   // Clear
-	GPIOA->MODER |= (1 << (0 * 2));   // Set PB0 output
+	GPIOB->MODER &= ~(3 << (0 * 2));   // Clear
+	GPIOB->MODER |= (1 << (0 * 2));   // Set PB0 output
 
-	GPIOA->OTYPER &= ~(1 << 0);        // Push-pull
-	GPIOA->PUPDR &= ~(3 << (0 * 2));	//No pull-up, no pull-down (PUPDR = 00)
+	GPIOB->OTYPER &= ~(1 << 0);        // Push-pull
+	GPIOB->PUPDR &= ~(3 << (0 * 2));	//No pull-up, no pull-down (PUPDR = 00)
 
-	GPIOA->ODR |= 1 << 0;			//set giá trị ban đầu = 1: buzzer off.
+	GPIOB->ODR |= 1 << 0;			//set giá trị ban đầu = 1: buzzer off.
 }
-
-
-
 
 int main(void) {
 	HAL_Init();
@@ -398,14 +416,12 @@ int main(void) {
 //	ssd1306_goto(0, 7);
 //	ssd1306_put_string("adc: 0");
 
-    I2C1_Init();
-    lcd_init();
-    lcd_gotoxy(0, 0);
-    lcd_puts("system: on ");
-    lcd_gotoxy(0, 1);
-    lcd_puts("gar: 0  ppm: 0");
-
-
+	I2C1_Init();
+	lcd_init();
+	lcd_gotoxy(0, 0);
+	lcd_puts("system: on ");
+	lcd_gotoxy(0, 1);
+	lcd_puts("gar: 0  ppm: 0");
 
 	init_ADC_MQ2();
 	init_timer1_led_RGB();
@@ -426,50 +442,59 @@ int main(void) {
 		if (sys_state) {
 			// kiểm tra gar_flag: được set khi trạng thái cảnh báo thay đổi.
 			if (gar_flag) {
-				if (warning_state == 0) {
+				switch (warning_state) {
+				case 0:
 					RGB_update(0, 0, 1, 0);		// cập nhật RGB.
 
 					GPIOB->ODR &= ~(1 << 12);	//relay
-					GPIOA->ODR |= (1 << 12);	//buzzer
+					GPIOB->ODR |= (1 << 0);	//buzzer
 
 //					ssd1306_goto(66, 3);
 //					ssd1306_put_string("0 - non     ");
 					lcd_gotoxy(5, 1);
 					lcd_puts("0");
+					break;
 
-				} else if (warning_state == 1) {
+				case 1:
 					RGB_update(1, 1, 0, 0);
 					GPIOB->ODR &= ~(1 << 12);
-					GPIOA->ODR |= (1 << 12);
+					GPIOB->ODR |= (1 << 0);
 //
 //					ssd1306_goto(66, 3);
 //					ssd1306_put_string("1 - low     ");
 					lcd_gotoxy(5, 1);
 					lcd_puts("1");
+					break;
 
-				} else if (warning_state == 2) {
-
+				case 2:
 					RGB_update(1, 0, 0, 1);
 
 					GPIOB->ODR |= 1 << 12;
-					GPIOA->ODR |= 1 << 12;
+					GPIOB->ODR |= 1 << 0;
 
 //					ssd1306_goto(66, 3);
 //					ssd1306_put_string("2 - high    ");
 					lcd_gotoxy(5, 1);
 					lcd_puts("2");
+					lcd_puts("1");
+					break;
 
-				} else if (warning_state == 3) {
+				case 3:
 					RGB_update(1, 0, 0, 5);
 
 					GPIOB->ODR |= 1 << 12;
-					GPIOA->ODR &= ~(1 << 12);
+					GPIOB->ODR &= ~(1 << 0);
 
 //					ssd1306_goto(66, 3);
 //					ssd1306_put_string("3 - warnning");
 					lcd_gotoxy(5, 1);
 					lcd_puts("3");
 
+					lcd_puts("1");
+					break;
+
+				default:
+					break;
 				}
 
 				gar_flag = 0;
@@ -494,11 +519,15 @@ int main(void) {
 			lcd_puts(str);
 
 			ADC1->CR2 |= ADC_CR2_SWSTART;         // Bắt đầu chuyển đổi
-			for (int i = 0; i < 2000000; i++);		//delay 2s
+			for (int i = 0; i < 2000000; i++)
+				;		//delay
 		}
 
 	} /* USER CODE END 3 */
 }
+
+
+
 
 /**
  * @brief System Clock Configuration

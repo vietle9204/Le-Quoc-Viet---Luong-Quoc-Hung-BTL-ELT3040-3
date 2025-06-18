@@ -3,8 +3,6 @@
 #include "math.h"
 #include "string.h"
 #include "LCD.h"
-//#include "usart_esp32.h"
-//#include "ssd1306.h"
 
 #define low_gar_default_value 50					//mức gar thấp > 50
 #define high_gar_default_value  150					// mức gar cao > 150
@@ -44,7 +42,6 @@ void init_buzzer(void);							// khởi tạo buzzer.
  * cấu hình ngắt sườn xuống.
  */
 void OnOffSwitch_Init(void) {
-
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 
 	GPIOA->MODER &= ~(3U << (1 * 2));           // Input mode.
@@ -53,9 +50,7 @@ void OnOffSwitch_Init(void) {
 	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;		// clock cho ngắt.
 
 	SYSCFG->EXTICR[0] &= ~(0xF << (1 * 4));     // EXTI1 -> PA1.
-
 	EXTI->IMR |= (1U << 1);						// Unmask EXTI1.
-
 	EXTI->FTSR |= (1U << 1);           			// ngắt sườn xuống.
 	EXTI->RTSR &= ~(1U << 1);					// không ngắt sườn lên.
 
@@ -75,11 +70,9 @@ void ResetSwitch_Init(void) {
 	GPIOA->PUPDR &= ~(3U << (2 * 2));           // Clear.
 
 	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;		// clock cho ngắt.
-
 	SYSCFG->EXTICR[0] &= ~(0xF << (2 * 4));     // EXTI2 -> PA2
 
 	EXTI->IMR |= (1U << 2);						// Unmask EXTI2
-
 	EXTI->FTSR |= (1U << 2);					// ngắt sườn xuống
 	EXTI->RTSR &= ~(1U << 2);
 
@@ -94,44 +87,28 @@ void system_on_off(int state) {
 	if (state) {
 		ADC1->CR2 |= ADC_CR2_ADON;        // bật adc1.
 		ADC1->CR2 |= ADC_CR2_SWSTART;
-
 		TIM1->CR1 |= TIM_CR1_CEN;		  // bật timer cho rgb.
 
 		RGB_update(0, 0, 1, 0);		 //set rgb
 		sys_state = system_on;
 
-//		ssd1306_goto(0, 0);
-//		ssd1306_put_string("sys_status: 1 - on  ");
 		lcd_gotoxy(0, 0);
 		lcd_puts("system: on ");
-//	    lcd_gotoxy(0, 1);
-//	    lcd_puts("gar: 0  ppm: 0");
-
-
-
 	} else {
 
 		RGB_update(0, 1, 0, 0);
 		sys_state = system_off;
 
 		ADC1->CR2 &= ~ADC_CR2_ADON;  // tắt adc
-
 		TIM1->CR1 &= ~TIM_CR1_CEN;	 // tắt timmer.
-
 
 		GPIOB->ODR &= ~(1 << 12);	 // tắt relay
 		GPIOB->ODR |= (1 << 0);	 // tắt buzzer
-
-
-
-//		ssd1306_goto(0, 0);
-//		ssd1306_put_string("sys_status: 0 - off ");
 
 		lcd_gotoxy(0, 0);
 		lcd_puts("system: off     ");
 		lcd_gotoxy(0, 1);
 		lcd_puts("gar: -  ppm: ---");
-
 	}
 
 }
@@ -142,10 +119,6 @@ void system_on_off(int state) {
  *khởi tạo lại LCD.
  */
 void system_reset(void) {
-
-	//		ssd1306_goto(0, 0);
-	//		ssd1306_put_string("sys_status: reset ");
-
 	system_on_off(system_off);
 
 	//NVIC_DisableIRQ(EXTI1_IRQn);  // Vô hiệu hóa switch 1
@@ -156,13 +129,9 @@ void system_reset(void) {
 	ppm_value = 0;
 	adc_value = 0;
 
-//			ADC1->CR1 = 0;
-//			ADC1->CR2 = 0;
 	ADC1->SR = 0;
 	init_ADC_MQ2();
 
-//		    TIM1->CR1 = 0;
-//		    TIM1->CR2 = 0;
 	TIM1->SR = 0;
 	init_timer1_led_RGB();
 
@@ -173,14 +142,14 @@ void system_reset(void) {
 	lcd_gotoxy(0, 0);
 	lcd_puts("system: rst     ");
 	lcd_gotoxy(0, 1);
-	lcd_puts("gar: 0  ppm: 0  ");
+	lcd_puts("gas: 0  ppm: 0  ");
 
 	while (!(GPIOA->IDR >> 2 & 0x1))
 		;    // chờ tới khi nút nhấn được nhả
 
-//	NVIC_EnableIRQ(EXTI1_IRQn);				// Enable EXTI1 interrupt in NVIC.
+	NVIC_EnableIRQ(EXTI1_IRQn);	// Enable EXTI1 interrupt in NVIC.
 	NVIC_EnableIRQ(EXTI2_IRQn);	// Enable EXTI2 interrupt in NVIC.
-	NVIC_EnableIRQ(ADC_IRQn); 				// Bật ngắt ADC trong NVIC
+	NVIC_EnableIRQ(ADC_IRQn); 	// Bật ngắt ADC trong NVIC
 
 	system_on_off(system_on);
 }
@@ -219,13 +188,10 @@ void init_ADC_MQ2(void) {
 	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;     // Bật clock cho ADC1
 
 	ADC1->CR1 &= ~ADC_CR1_RES_Msk;        	// Xóa cấu hình độ phân giải cũ
-//	ADC1->CR1 |= 2 << ADC_CR1_RES_Pos; 		// Chọn độ phân giải 8 bit (10 = 8-bit resolution)
 	ADC1->CR1 |= ADC_CR1_EOCIE;	// Bật ngắt khi ADC chuyển đổi hoàn tất (EOC)
 
 	ADC1->SMPR2 |= (7 << (0 * 3)); // Cấu hình thời gian lấy mẫu cho kênh 0:  cycles
-
 	ADC1->SQR3 &= ~(0xF << 0);              // Chọn kênh ADC = kênh 0 (PA0)
-
 	ADC1->CR2 |= ADC_CR2_ADON;            	// Bật ADC1 (Enable ADC)
 
 	NVIC_EnableIRQ(ADC_IRQn); 				// Bật ngắt ADC trong NVIC
@@ -275,7 +241,7 @@ void ADC_IRQHandler(void) {
 				gar_flag = 1;
 			}
 		} else if (ppm_value >= high_gar_default_value
-				&& ppm_value < warning_gar_default_value) {
+			&& ppm_value < warning_gar_default_value) {
 			if (warning_state == 2)
 				return;
 			else {
@@ -290,7 +256,6 @@ void ADC_IRQHandler(void) {
 				gar_flag = 1;
 			}
 		}
-
 		ADC1->SR &= ~(1 << 1);  			// Xóa cờ EOC
 	}
 
@@ -393,28 +358,8 @@ void init_buzzer(void) {
 
 int main(void) {
 	HAL_Init();
-
 	SystemClock_Config();
 	MX_GPIO_Init();
-
-	//	init_usart6();
-
-//	char str[12];  // bộ nhớ đủ lớn để chứa số nguyên và '\0'
-
-//	ssd1306_init();
-//	ssd1306_clear();
-//
-//	ssd1306_goto(0, 0);
-//	ssd1306_put_string("sys_status: 1 - on  ");
-//
-//	ssd1306_goto(0, 3);
-//	ssd1306_put_string("gar_state: 0 - non");
-//
-//	ssd1306_goto(0, 5);
-//	ssd1306_put_string("ppm: 0");
-//
-//	ssd1306_goto(0, 7);
-//	ssd1306_put_string("adc: 0");
 
 	I2C1_Init();
 	lcd_init();
@@ -449,8 +394,6 @@ int main(void) {
 					GPIOB->ODR &= ~(1 << 12);	//relay
 					GPIOB->ODR |= (1 << 0);	//buzzer
 
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("0 - non     ");
 					lcd_gotoxy(5, 1);
 					lcd_puts("0");
 					break;
@@ -459,9 +402,7 @@ int main(void) {
 					RGB_update(1, 1, 0, 0);
 					GPIOB->ODR &= ~(1 << 12);
 					GPIOB->ODR |= (1 << 0);
-//
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("1 - low     ");
+
 					lcd_gotoxy(5, 1);
 					lcd_puts("1");
 					break;
@@ -472,8 +413,6 @@ int main(void) {
 					GPIOB->ODR |= 1 << 12;
 					GPIOB->ODR |= 1 << 0;
 
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("2 - high    ");
 					lcd_gotoxy(5, 1);
 					lcd_puts("2");
 					lcd_puts("1");
@@ -485,8 +424,6 @@ int main(void) {
 					GPIOB->ODR |= 1 << 12;
 					GPIOB->ODR &= ~(1 << 0);
 
-//					ssd1306_goto(66, 3);
-//					ssd1306_put_string("3 - warnning");
 					lcd_gotoxy(5, 1);
 					lcd_puts("3");
 
@@ -496,19 +433,8 @@ int main(void) {
 				default:
 					break;
 				}
-
 				gar_flag = 0;
-
 			}
-			//cập nhật ppm
-//			sprintf(str, "%d   ", ppm_value);  // chuyển số nguyên sang chuỗi
-//			ssd1306_goto(30, 5);
-//			ssd1306_put_string(str);
-//
-//			sprintf(str, "%d   ", adc_value);
-//			ssd1306_goto(30, 7);
-//			ssd1306_put_string(str);
-
 			char str[161];
 			sprintf(str, "%d   ", ppm_value);
 			lcd_gotoxy(13, 1);
@@ -525,10 +451,6 @@ int main(void) {
 
 	} /* USER CODE END 3 */
 }
-
-
-
-
 /**
  * @brief System Clock Configuration
  * @retval None

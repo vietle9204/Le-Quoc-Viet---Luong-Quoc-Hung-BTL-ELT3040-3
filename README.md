@@ -1,5 +1,6 @@
 schematic
-![image](https://github.com/user-attachments/assets/52f948dd-cbc3-465f-a46b-67103a262470)
+![image](https://github.com/user-attachments/assets/2d055486-50a5-4ac6-add8-feefcb329c56)
+
 
 demo sản phẩm 
 ![image](https://github.com/user-attachments/assets/bbe72bca-e965-4346-a8dd-ad20d23fd181)

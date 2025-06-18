@@ -18,8 +18,6 @@ void lcd_init(void);
 void lcd_puts(char *str);
 void lcd_gotoxy(uint8_t col, uint8_t row);
 
-
-
 void delay_ms(uint32_t ms)
 {
     for (uint32_t i = 0; i < ms * 4000; i++) __NOP();
@@ -44,7 +42,6 @@ void I2C1_Init(void)
     I2C1->TRISE = 41;          // = (1000ns / T) + 1 = (1000ns / 23.81ns) + 1
     I2C1->CR1 |= I2C_CR1_PE;
 }
-
 
 void I2C1_Write(uint8_t addr, uint8_t *data, uint8_t len)
 {
@@ -115,7 +112,7 @@ void lcd_gotoxy(uint8_t col, uint8_t row)
     {
         case 0: address = 0x80 + col; break;  // Dòng 1
         case 1: address = 0xC0 + col; break;  // Dòng 2
-case 2: address = 0x94 + col; break;  // Dòng 3
+        case 2: address = 0x94 + col; break;  // Dòng 3
         case 3: address = 0xD4 + col; break;  // Dòng 4
         default: return;  // Sai row thì không gửi lệnh
     }

@@ -31,7 +31,6 @@ void init_timer1_led_RGB(void);                 // khởi tạo timer pwm cho RG
 void RGB_update(int R, int G, int B, int FREQ); // cập nhật màu sắc và tần số nhấp nháy.
 
 void init_ADC_MQ2(void);					// khởi tạo ADC đọc cảm biến  mq2.
-
 void init_relay(void);							// khởi tạo relay.
 void init_buzzer(void);							// khởi tạo buzzer.
 
@@ -95,7 +94,6 @@ void system_on_off(int state) {
 		lcd_gotoxy(0, 0);
 		lcd_puts("system: on ");
 	} else {
-
 		RGB_update(0, 1, 0, 0);
 		sys_state = system_off;
 
@@ -144,9 +142,7 @@ void system_reset(void) {
 	lcd_gotoxy(0, 1);
 	lcd_puts("gas: 0  ppm: 0  ");
 
-	while (!(GPIOA->IDR >> 2 & 0x1))
-		;    // chờ tới khi nút nhấn được nhả
-
+	while (!(GPIOA->IDR >> 2 & 0x1))// chờ tới khi nút nhấn được nhả
 	NVIC_EnableIRQ(EXTI1_IRQn);	// Enable EXTI1 interrupt in NVIC.
 	NVIC_EnableIRQ(EXTI2_IRQn);	// Enable EXTI2 interrupt in NVIC.
 	NVIC_EnableIRQ(ADC_IRQn); 	// Bật ngắt ADC trong NVIC
@@ -180,7 +176,6 @@ void EXTI2_IRQHandler(void) {
  * Cấu hình ADC1
  */
 void init_ADC_MQ2(void) {
-
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;  	// Bật clock GPIOA
 	GPIOA->MODER &= ~(3 << (0 * 2));  		// Xóa cấu hình cũ của PA0
 	GPIOA->MODER |= (3 << (0 * 2)); // Chọn chế độ analog cho PA0 (MODER00 = 11)
@@ -194,8 +189,7 @@ void init_ADC_MQ2(void) {
 	ADC1->SQR3 &= ~(0xF << 0);              // Chọn kênh ADC = kênh 0 (PA0)
 	ADC1->CR2 |= ADC_CR2_ADON;            	// Bật ADC1 (Enable ADC)
 
-	NVIC_EnableIRQ(ADC_IRQn); 				// Bật ngắt ADC trong NVIC
-
+	NVIC_EnableIRQ(ADC_IRQn); 		// Bật ngắt ADC trong NVIC
 }
 
 /**
@@ -258,7 +252,6 @@ void ADC_IRQHandler(void) {
 		}
 		ADC1->SR &= ~(1 << 1);  			// Xóa cờ EOC
 	}
-
 }
 
 /**
@@ -271,7 +264,6 @@ void init_timer1_led_RGB(void) {
 	// 1. Bật clock GPIOA và TIM1
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
-
 	// 2. Cấu hình các chân PA8, PA9, PA10 làm Alternate Function (AF1 tương ứng với TIM1)
 	GPIOA->MODER &= ~((3 << (8 * 2)) | (3 << (9 * 2)) | (3 << (10 * 2))); // Xóa cấu hình cũ
 	GPIOA->MODER |= (2 << (8 * 2)) | (2 << (9 * 2)) | (2 << (10 * 2)); // Đặt chế độ AF
@@ -280,7 +272,6 @@ void init_timer1_led_RGB(void) {
 			| (0xF << ((10 - 8) * 4)));
 	GPIOA->AFR[1] |= (1 << ((8 - 8) * 4)) | (1 << ((9 - 8) * 4))
 			| (1 << ((10 - 8) * 4));  // AF1
-
 	// 3. Cấu hình Timer1
 	TIM1->PSC = 79999;        // Prescaler: giảm từ 80 MHz xuống 1 kHz
 	TIM1->ARR = 999;          // Auto-reload: 1s chu kỳ (1 tick = 1ms)
@@ -289,7 +280,6 @@ void init_timer1_led_RGB(void) {
 	TIM1->CCR1 = 0;
 	TIM1->CCR2 = 0;
 	TIM1->CCR3 = 0;
-
 	// 5. Cấu hình chế độ PWM cho các kênh (OC1, OC2, OC3)
 	TIM1->CCMR1 &= ~(TIM_CCMR1_OC1M | TIM_CCMR1_OC2M);  // Xóa mode cũ
 	TIM1->CCMR2 &= ~(TIM_CCMR2_OC3M);                   // Xóa mode cũ
@@ -299,17 +289,15 @@ void init_timer1_led_RGB(void) {
 	TIM1->CCMR2 |= (0b111 << TIM_CCMR2_OC3M_Pos);  // PWM mode 2 cho OC3
 
 	TIM1->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E; // Cho phép xuất tín hiệu trên CH1, CH2, CH3
-
 	// 6. Cho phép output (Main Output Enable)
 	TIM1->BDTR |= TIM_BDTR_MOE;
-
 	// 7. Bắt đầu Timer
 	TIM1->CR1 |= TIM_CR1_CEN;
 }
 
 void RGB_update(int R, int G, int B, int FREQ) {
 	TIM1->CR1 &= ~TIM_CR1_CEN;  // Dừng Timer để cập nhật
-
+	
 	if (FREQ == 0)  // Nếu không nhấp nháy
 			{
 		TIM1->ARR = 999;  // Chu kỳ 1 giây

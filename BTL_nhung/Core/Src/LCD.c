@@ -112,8 +112,6 @@ void lcd_gotoxy(uint8_t col, uint8_t row)
     {
         case 0: address = 0x80 + col; break;  // Dòng 1
         case 1: address = 0xC0 + col; break;  // Dòng 2
-        case 2: address = 0x94 + col; break;  // Dòng 3
-        case 3: address = 0xD4 + col; break;  // Dòng 4
         default: return;  // Sai row thì không gửi lệnh
     }
 

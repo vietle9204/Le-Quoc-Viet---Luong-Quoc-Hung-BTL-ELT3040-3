@@ -4,9 +4,9 @@
 #include "string.h"
 #include "LCD.h"
 
-#define low_gar_default_value 50					//mức gar thấp > 50
-#define high_gar_default_value  150					// mức gar cao > 150
-#define warning_gar_default_value 300				// mức gar trên ngưỡng nguy hiểm > 300
+int low_gar_value = 50;					//mức gar thấp > 50
+int high_gar_value = 150;					// mức gar cao > 150
+int warning_gar_value = 300;				// mức gar trên ngưỡng nguy hiểm > 300
 
 #define system_on 1
 #define system_off 0
@@ -219,30 +219,30 @@ void ADC_IRQHandler(void) {
 		adc_value = ADC1->DR;   			// Đọc giá trị ADC
 		ppm_value = ppm_caculator(adc_value); 	// Tính toán ppm từ giá trị ADC
 
-		if (ppm_value < low_gar_default_value) {	//kiểm tra mức khí gar
+		if (ppm_value < low_gar_value) {	//kiểm tra mức khí gar
 			if (warning_state == 0)				// so sánh trạng thái trước đó
 				return;								//cùng trạng thái trả về
 			else {
 				warning_state = 0;				// khác trạng thái : cập nhật
 				gar_flag = 1;						// và set flag
 			}
-		} else if (ppm_value >= low_gar_default_value
-				&& ppm_value < high_gar_default_value) {
+		} else if (ppm_value >= low_gar_value
+				&& ppm_value < high_gar_value) {
 			if (warning_state == 1)
 				return;
 			else {
 				warning_state = 1;
 				gar_flag = 1;
 			}
-		} else if (ppm_value >= high_gar_default_value
-			&& ppm_value < warning_gar_default_value) {
+		} else if (ppm_value >= high_gar_value
+				&& ppm_value < warning_gar_value) {
 			if (warning_state == 2)
 				return;
 			else {
 				warning_state = 2;
 				gar_flag = 1;
 			}
-		} else if (ppm_value >= warning_gar_default_value) {
+		} else if (ppm_value >= warning_gar_value) {
 			if (warning_state == 3)
 				return;
 			else {
@@ -250,6 +250,7 @@ void ADC_IRQHandler(void) {
 				gar_flag = 1;
 			}
 		}
+
 		ADC1->SR &= ~(1 << 1);  			// Xóa cờ EOC
 	}
 }
@@ -342,6 +343,27 @@ void init_buzzer(void) {
 	GPIOB->PUPDR &= ~(3 << (0 * 2));	//No pull-up, no pull-down (PUPDR = 00)
 
 	GPIOB->ODR |= 1 << 0;			//set giá trị ban đầu = 1: buzzer off.
+}
+
+void handle_uart_message(char *msg) {
+    if (strcmp(msg, "SWITCH_ON") == 0) {
+    	sys_state = system_on;
+        system_on_off(system_on);
+
+    } else if (strcmp(msg, "SWITCH_OFF") == 0) {
+    	sys_state = system_off;
+        system_on_off(system_off);
+
+    } else if (strcmp(msg, "RESET") == 0) {
+    	system_reset();
+
+    } else if (msg[0] == '<' && msg[strlen(msg) - 1] == '>') {
+        // Chuỗi dạng: <v6,v7,v8>
+
+        if (sscanf(msg, "<%d,%d,%d>", &low_gar_value, &high_gar_value, &warning_gar_value) == 3) {
+
+        }
+    }
 }
 
 int main(void) {

@@ -22,18 +22,14 @@ void I2C1_Init(void)
     RCC->AHB1ENR |= (1 << 1);       // GPIOBEN
     RCC->APB1ENR |= (1 << 21);      // I2C1EN
 
-    // Set PB6 & PB7 to Alternate function (MODER6 = 10, MODER7 = 10)
     GPIOB->MODER &= ~((0x3 << (6 * 2)) | (0x3 << (7 * 2)));
     GPIOB->MODER |=  ((0x2 << (6 * 2)) | (0x2 << (7 * 2)));
 
-    // Set PB6 & PB7 to AF4 (I2C1) in AFR[0]
     GPIOB->AFR[0] &= ~((0xF << (6 * 4)) | (0xF << (7 * 4)));
     GPIOB->AFR[0] |=  ((0x4 << (6 * 4)) | (0x4 << (7 * 4)));
 
-    // Set PB6 & PB7 to Open-Drain
     GPIOB->OTYPER |= (1 << 6) | (1 << 7);
-
-    // Set PB6 & PB7 to Pull-up
+    
     GPIOB->PUPDR &= ~((0x3 << (6 * 2)) | (0x3 << (7 * 2)));
     GPIOB->PUPDR |=  ((0x1 << (6 * 2)) | (0x1 << (7 * 2)));
 

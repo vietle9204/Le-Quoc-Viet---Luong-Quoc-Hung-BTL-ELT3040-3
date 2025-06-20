@@ -1,10 +1,3 @@
-/*
- * LCD.c
- *
- *  Created on: Jun 14, 2025
- *      Author: LEGION
- */
-
 #include "stm32f4xx.h"
 
 #define LCD_ADDR (0x27 << 1)
@@ -25,39 +18,52 @@ void delay_ms(uint32_t ms)
 
 void I2C1_Init(void)
 {
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
-    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
+    // Enable GPIOB (bit 1) và I2C1 (bit 21)
+    RCC->AHB1ENR |= (1 << 1);       // GPIOBEN
+    RCC->APB1ENR |= (1 << 21);      // I2C1EN
 
-    GPIOB->MODER &= ~(GPIO_MODER_MODE6_Msk | GPIO_MODER_MODE7_Msk);
-    GPIOB->MODER |= (2 << GPIO_MODER_MODE6_Pos) | (2 << GPIO_MODER_MODE7_Pos); // Alternate function
+    // Set PB6 & PB7 to Alternate function (MODER6 = 10, MODER7 = 10)
+    GPIOB->MODER &= ~((0x3 << (6 * 2)) | (0x3 << (7 * 2)));
+    GPIOB->MODER |=  ((0x2 << (6 * 2)) | (0x2 << (7 * 2)));
 
-    GPIOB->AFR[0] |= (4 << GPIO_AFRL_AFSEL6_Pos) | (4 << GPIO_AFRL_AFSEL7_Pos); // AF4 for I2C1
-    GPIOB->OTYPER |= GPIO_OTYPER_OT6 | GPIO_OTYPER_OT7;
-    GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPD6_Msk | GPIO_PUPDR_PUPD7_Msk);
-    GPIOB->PUPDR |= (1 << GPIO_PUPDR_PUPD6_Pos) | (1 << GPIO_PUPDR_PUPD7_Pos); // Pull-up
+    // Set PB6 & PB7 to AF4 (I2C1) in AFR[0]
+    GPIOB->AFR[0] &= ~((0xF << (6 * 4)) | (0xF << (7 * 4)));
+    GPIOB->AFR[0] |=  ((0x4 << (6 * 4)) | (0x4 << (7 * 4)));
 
-    I2C1->CR1 &= ~I2C_CR1_PE;
-    I2C1->CR2 = 40;            // APB1 = 42 MHz
-    I2C1->CCR = 200;           // Chu kỳ = 42MHz / (2*CCR) = 100kHz
-    I2C1->TRISE = 41;          // = (1000ns / T) + 1 = (1000ns / 23.81ns) + 1
-    I2C1->CR1 |= I2C_CR1_PE;
+    // Set PB6 & PB7 to Open-Drain
+    GPIOB->OTYPER |= (1 << 6) | (1 << 7);
+
+    // Set PB6 & PB7 to Pull-up
+    GPIOB->PUPDR &= ~((0x3 << (6 * 2)) | (0x3 << (7 * 2)));
+    GPIOB->PUPDR |=  ((0x1 << (6 * 2)) | (0x1 << (7 * 2)));
+
+    // Disable I2C1 before configuring
+    I2C1->CR1 &= ~(1 << 0);   // PE = 0
+
+    I2C1->CR2 = 40;           // PCLK1 = 40MHz
+    I2C1->CCR = 200;          // CCR = Fpclk / (2 * F_SCL)
+    I2C1->TRISE = 41;         // TRISE = (1000ns / T_PCLK) + 1
+
+    // Enable I2C1
+    I2C1->CR1 |= (1 << 0);    // PE = 1
 }
 
 void I2C1_Write(uint8_t addr, uint8_t *data, uint8_t len)
 {
-    I2C1->CR1 |= I2C_CR1_START;
-    while (!(I2C1->SR1 & I2C_SR1_SB));
-    I2C1->DR = addr & ~0x01;
-    while (!(I2C1->SR1 & I2C_SR1_ADDR));
-    (void)I2C1->SR2;
+    I2C1->CR1 |= (1 << 8);                      // START
+    while (!(I2C1->SR1 & (1 << 0)));            // Wait for SB
+
+    I2C1->DR = addr & ~0x01;                    // Write mode (LSB = 0)
+    while (!(I2C1->SR1 & (1 << 1)));            // Wait for ADDR
+    (void)I2C1->SR2;                            // Clear ADDR
 
     for (int i = 0; i < len; i++) {
-        while (!(I2C1->SR1 & I2C_SR1_TXE));
+        while (!(I2C1->SR1 & (1 << 7)));        // Wait for TXE
         I2C1->DR = data[i];
     }
 
-    while (!(I2C1->SR1 & I2C_SR1_BTF));
-    I2C1->CR1 |= I2C_CR1_STOP;
+    while (!(I2C1->SR1 & (1 << 2)));            // Wait for BTF
+    I2C1->CR1 |= (1 << 9);                      // STOP
 }
 
 void lcd_send_cmd(char cmd)
@@ -110,10 +116,10 @@ void lcd_gotoxy(uint8_t col, uint8_t row)
 
     switch (row)
     {
-        case 0: address = 0x80 + col; break;  // Dòng 1
-        case 1: address = 0xC0 + col; break;  // Dòng 2
-        default: return;  // Sai row thì không gửi lệnh
+        case 0: address = 0x80 + col; break;  // Line 1
+        case 1: address = 0xC0 + col; break;  // Line 2
+        default: return;
     }
 
-    lcd_send_cmd(address);  // Gửi lệnh set DDRAM address
+    lcd_send_cmd(address);
 }

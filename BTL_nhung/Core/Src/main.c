@@ -43,15 +43,15 @@ void init_buzzer(void);							// khởi tạo buzzer.
 void OnOffSwitch_Init(void) {
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 
-	GPIOA->MODER &= ~(3U << (1 * 2));           // Input mode.
-	GPIOA->PUPDR &= ~(3U << (1 * 2));           // Clear.
+	GPIOA->MODER &= ~(3 << (1 * 2));           // Input mode.
+	GPIOA->PUPDR &= ~(3 << (1 * 2));           // Clear.
 
 	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;		// clock cho ngắt.
 
 	SYSCFG->EXTICR[0] &= ~(0xF << (1 * 4));     // EXTI1 -> PA1.
-	EXTI->IMR |= (1U << 1);						// Unmask EXTI1.
-	EXTI->FTSR |= (1U << 1);           			// ngắt sườn xuống.
-	EXTI->RTSR &= ~(1U << 1);					// không ngắt sườn lên.
+	EXTI->IMR |= (1 << 1);						// Unmask EXTI1.
+	EXTI->FTSR |= (1 << 1);           			// ngắt sườn xuống.
+	EXTI->RTSR &= ~(1 << 1);					// không ngắt sườn lên.
 
 	NVIC_EnableIRQ(EXTI1_IRQn);				// Enable EXTI1 interrupt in NVIC.
 }
@@ -65,15 +65,15 @@ void OnOffSwitch_Init(void) {
 void ResetSwitch_Init(void) {
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 
-	GPIOA->MODER &= ~(3U << (2 * 2));           // Input mode.
-	GPIOA->PUPDR &= ~(3U << (2 * 2));           // Clear.
+	GPIOA->MODER &= ~(3 << (2 * 2));           // Input mode.
+	GPIOA->PUPDR &= ~(3 << (2 * 2));           // Clear.
 
 	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;		// clock cho ngắt.
 	SYSCFG->EXTICR[0] &= ~(0xF << (2 * 4));     // EXTI2 -> PA2
 
-	EXTI->IMR |= (1U << 2);						// Unmask EXTI2
-	EXTI->FTSR |= (1U << 2);					// ngắt sườn xuống
-	EXTI->RTSR &= ~(1U << 2);
+	EXTI->IMR |= (1 << 2);						// Unmask EXTI2
+	EXTI->FTSR |= (1 << 2);					// ngắt sườn xuống
+	EXTI->RTSR &= ~(1 << 2);
 
 	NVIC_EnableIRQ(EXTI2_IRQn);				// Enable EXTI2 interrupt in NVIC
 }
@@ -154,7 +154,7 @@ void system_reset(void) {
  * xử lý ngắt PA1: on/off hệ thống.
  */
 void EXTI1_IRQHandler(void) {
-	if (EXTI->PR & (1U << 1)) {
+	if (EXTI->PR & (1 << 1)) {
 		sys_state ^= 1;				//đổi trạng thái
 		system_on_off(sys_state);	//gọi hàm on-of
 		EXTI->PR |= (1U << 1);      // Clear interrupt pending
@@ -165,9 +165,9 @@ void EXTI1_IRQHandler(void) {
  * xử lý ngắt PA1: reset.
  */
 void EXTI2_IRQHandler(void) {
-	if (EXTI->PR & (1U << 2)) {
+	if (EXTI->PR & (1 << 2)) {
 		system_reset();
-		EXTI->PR |= (1U << 2); // Clear interrupt pending
+		EXTI->PR |= (1 << 2); // Clear interrupt pending
 	}
 }
 
